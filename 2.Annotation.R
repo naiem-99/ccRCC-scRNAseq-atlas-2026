@@ -67,18 +67,10 @@ DimPlot(integrated, group.by = "Patient")
 
 ## ---------------------------------------------------------
 ## Cell type annotation
-## Labels were assigned by checking canonical markers per
-## cluster at resolution 0.4. For example:
-##   Tumor       CA9, NDUFA4L2
-##   Macrophage  CD68, C1QA
-##   Endothelial PECAM1, VWF
-##   T cells     CD3D, CD4, CD8A
-## Uncomment the lines below to re-check the markers yourself.
 ## ---------------------------------------------------------
 # DefaultAssay(integrated) <- "RNA"
 # markers <- FindAllMarkers(integrated, only.pos = TRUE)
-# DotPlot(integrated, features = c("CA9", "NDUFA4L2", "CD68", "C1QA",
-#                                  "PECAM1", "VWF", "CD3D", "CD8A")) + RotatedAxis()
+# DotPlot(integrated, features = c("CA9", "NDUFA4L2", "CD68", "C1QA","PECAM1", "VWF", "CD3D", "CD8A")) + RotatedAxis()
 
 cluster_labels <- c(
   "0"  = "Tumor",       "1"  = "Macro",      "2"  = "Tumor",
@@ -94,7 +86,6 @@ integrated$CellType <- cluster_labels[as.character(integrated$integrated_snn_res
 
 ## Annotated UMAP
 DimPlot(integrated, group.by = "CellType", label = TRUE, repel = TRUE)
-
 
 ## ---------------------------------------------------------
 ## Save
