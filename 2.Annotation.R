@@ -1,5 +1,5 @@
-############################################################
-# 2. INTEGRATION AND CELL TYPE ANNOTATION
+# ── 2. Integration and cell type annotation ───────────────────────────────────
+
 #   - Integrates the 10 patients with Seurat CCA integration
 #     to remove patient-level batch effects
 #   - Clusters the cells and annotates each cluster
@@ -12,7 +12,6 @@
 #   output/ccRCC_integrated_annotated.rds
 #
 # Next step: 3.InferCNV.R
-############################################################
 
 rm(list = ls()); gc()
 
@@ -23,18 +22,15 @@ options(future.globals.maxSize = 20 * 1024^3)
 
 output_dir <- "output"
 
+# ── Load the merged object ────────────────────────────────────────────────────
 
-## ---------------------------------------------------------
-## Load the merged object
-## ---------------------------------------------------------
 ccRCC_merged <- readRDS(file.path(output_dir, "ccRCC_merged_10_patients.rds"))
 
+# ── Integration across patients ───────────────────────────────────────────────
 
-## ---------------------------------------------------------
-## Integration across patients
-## Each patient is normalised on its own, then Seurat finds
-## shared "anchor" cells to align them into one space.
-## ---------------------------------------------------------
+# Each patient is normalised on its own, then Seurat finds
+# shared "anchor" cells to align them into one space.
+
 patient_list <- SplitObject(ccRCC_merged, split.by = "Patient")
 rm(ccRCC_merged); gc()
 
@@ -48,10 +44,8 @@ anchors    <- FindIntegrationAnchors(object.list = patient_list, dims = 1:30)
 integrated <- IntegrateData(anchorset = anchors)
 rm(patient_list, anchors); gc()
 
+# ── Dimensional reduction and clustering ──────────────────────────────────────
 
-## ---------------------------------------------------------
-## Dimensional reduction and clustering
-## ---------------------------------------------------------
 DefaultAssay(integrated) <- "integrated"
 
 integrated <- ScaleData(integrated)
@@ -60,14 +54,13 @@ integrated <- RunUMAP(integrated, dims = 1:30)
 integrated <- FindNeighbors(integrated, dims = 1:30)
 integrated <- FindClusters(integrated, resolution = 0.4)
 
-## Quick look at the clusters
+# Quick look at the clusters
+
 DimPlot(integrated, label = TRUE) + NoLegend()
 DimPlot(integrated, group.by = "Patient")
 
+# ── Cell type annotation ──────────────────────────────────────────────────────
 
-## ---------------------------------------------------------
-## Cell type annotation
-## ---------------------------------------------------------
 # DefaultAssay(integrated) <- "RNA"
 # markers <- FindAllMarkers(integrated, only.pos = TRUE)
 # DotPlot(integrated, features = c("CA9", "NDUFA4L2", "CD68", "C1QA","PECAM1", "VWF", "CD3D", "CD8A")) + RotatedAxis()
@@ -84,10 +77,10 @@ cluster_labels <- c(
 
 integrated$CellType <- cluster_labels[as.character(integrated$integrated_snn_res.0.4)]
 
-## Annotated UMAP
+# Annotated UMAP
+
 DimPlot(integrated, group.by = "CellType", label = TRUE, repel = TRUE)
 
-## ---------------------------------------------------------
-## Save
-## ---------------------------------------------------------
+# ── Save ──────────────────────────────────────────────────────────────────────
+
 saveRDS(integrated, file.path(output_dir, "ccRCC_integrated_annotated.rds"))
