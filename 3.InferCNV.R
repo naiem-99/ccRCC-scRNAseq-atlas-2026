@@ -1,5 +1,5 @@
-############################################################
-# 3. COPY NUMBER INFERENCE WITH inferCNV
+# ── 3. Copy number inference with inferCNV ────────────────────────────────────
+
 #   - Takes tumor cells and a set of immune reference cells
 #   - Infers large-scale copy number changes in tumor cells
 #     by comparing their expression along each chromosome
@@ -15,7 +15,6 @@
 # Output:
 #   output/infercnv/                          (heatmaps and HMM calls)
 #   output/ccRCC_tumor_CNV.rds
-############################################################
 
 rm(list = ls()); gc()
 
@@ -31,29 +30,24 @@ infercnv_dir <- file.path(output_dir, "infercnv")
 
 dir.create(infercnv_dir, showWarnings = FALSE, recursive = TRUE)
 
+# ── Load the annotated object ─────────────────────────────────────────────────
 
-## ---------------------------------------------------------
-## Load the annotated object
-## ---------------------------------------------------------
 integrated <- readRDS(file.path(output_dir, "ccRCC_integrated_annotated.rds"))
 
+# ── Keep tumor cells and the immune reference cells ───────────────────────────
 
-## ---------------------------------------------------------
-## Keep tumor cells and the immune reference cells
-## ---------------------------------------------------------
 reference_types <- c("Mono", "DC", "B Cells")
 keep_types      <- c(reference_types, "Tumor")
 
 cnv_obj <- subset(integrated, subset = CellType %in% keep_types)
 rm(integrated); gc()
 
+# ── Prepare inferCNV inputs ───────────────────────────────────────────────────
 
-## ---------------------------------------------------------
-## Prepare inferCNV inputs
-##   1. raw count matrix
-##   2. cell annotation table (cell barcode -> cell type)
-##   3. gene order file (gene -> chromosome position)
-## ---------------------------------------------------------
+#   1. raw count matrix
+#   2. cell annotation table (cell barcode -> cell type)
+#   3. gene order file (gene -> chromosome position)
+
 counts_matrix <- GetAssayData(cnv_obj, assay = "RNA", slot = "counts")
 
 cell_annotation <- data.frame(
@@ -61,18 +55,18 @@ cell_annotation <- data.frame(
   row.names = colnames(cnv_obj)
 )
 
-## Make sure every reference group is present before running
+# Make sure every reference group is present before running
+
 missing_refs <- setdiff(reference_types, unique(cell_annotation$cell_type))
 if (length(missing_refs) > 0) {
   stop("Missing reference groups: ", paste(missing_refs, collapse = ", "))
 }
 
+# ── Create and run inferCNV ───────────────────────────────────────────────────
 
-## ---------------------------------------------------------
-## Create and run inferCNV
-## Subcluster mode lets inferCNV find subclones within tumor cells.
-## The i6 HMM calls six copy number states per region.
-## ---------------------------------------------------------
+# Subcluster mode lets inferCNV find subclones within tumor cells.
+# The i6 HMM calls six copy number states per region.
+
 infercnv_obj <- CreateInfercnvObject(
   raw_counts_matrix = counts_matrix,
   annotations_file  = cell_annotation,
@@ -97,21 +91,20 @@ infercnv_obj <- infercnv::run(
 
 saveRDS(infercnv_obj, file.path(infercnv_dir, "infercnv_obj.rds"))
 
+# ── Add inferCNV results back to the Seurat object ────────────────────────────
 
-## ---------------------------------------------------------
-## Add inferCNV results back to the Seurat object
-## ---------------------------------------------------------
 cnv_obj <- infercnv::add_to_seurat(
   infercnv_output_path = infercnv_dir,
   seurat_obj           = cnv_obj,
   top_n                = 10
 )
 rm(infercnv_obj); gc()
-## ---------------------------------------------------------
-## Keep tumor cells and compute a simple CNV burden score
-## The score adds up the scaled proportion of each chromosome
-## affected by a copy number change in that cell.
-## ---------------------------------------------------------
+
+# ── Keep tumor cells and compute a simple CNV burden score ────────────────────
+
+# The score adds up the scaled proportion of each chromosome
+# affected by a copy number change in that cell.
+
 tumor_cnv <- subset(cnv_obj, subset = CellType == "Tumor")
 rm(cnv_obj); gc()
 
@@ -120,12 +113,10 @@ cnv_columns <- grep("^proportion_scaled_cnv_chr",
 
 tumor_cnv$CNV_score <- rowSums(tumor_cnv@meta.data[, cnv_columns], na.rm = TRUE)
 
-## ---------------------------------------------------------
-## CNV burden across patients
-## ---------------------------------------------------------
+# ── CNV burden across patients ────────────────────────────────────────────────
+
 VlnPlot(tumor_cnv, features = "CNV_score", group.by = "Patient", pt.size = 0)
 
-## ---------------------------------------------------------
-## Save
-## ---------------------------------------------------------
+# ── Save ──────────────────────────────────────────────────────────────────────
+
 saveRDS(tumor_cnv, file.path(output_dir, "ccRCC_tumor_CNV.rds"))
